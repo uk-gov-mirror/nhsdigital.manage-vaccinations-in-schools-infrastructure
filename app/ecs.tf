@@ -291,3 +291,48 @@ module "ops_service" {
   ]
   readonly_file_system = false
 }
+
+module "metrics_service" {
+  source = "./modules/ecs_service"
+  task_config = {
+    environment          = local.task_envs["CORE"]
+    secrets              = local.task_secrets["CORE"]
+    cpu                  = 512
+    memory               = 1024
+    execution_role_arn   = aws_iam_role.ecs_task_execution_role["CORE"].arn
+    task_role_arn        = data.aws_iam_role.ecs_task_role.arn
+    log_group_name       = aws_cloudwatch_log_group.ecs_log_group.name
+    region               = var.region
+    health_check_command = ["CMD-SHELL", "./bin/internal_healthcheck && grep -q '[m]etrics-publisher' /proc/*/cmdline 2>/dev/null || exit 1"]
+  }
+  export_prometheus_metrics = local.export_prometheus_metrics
+  cloudwatch_agent_secrets = [
+    {
+      "name" : "PROMETHEUS_CONFIG_CONTENT",
+      "valueFrom" : aws_ssm_parameter.prometheus_config.arn
+    },
+    {
+      "name" : "CW_CONFIG_CONTENT",
+      "valueFrom" : aws_ssm_parameter.cloudwatch_agent_config.arn
+    }
+  ]
+  network_params = {
+    subnets = [aws_subnet.private_subnet_a.id, aws_subnet.private_subnet_b.id]
+    vpc_id  = aws_vpc.application_vpc.id
+  }
+  minimum_replica_count = 0
+  maximum_replica_count = 0
+  cluster_id            = aws_ecs_cluster.cluster.id
+  cluster_name          = aws_ecs_cluster.cluster.name
+  environment           = var.environment
+  server_type           = "metrics"
+  service_connect_config = {
+    namespace = aws_service_discovery_private_dns_namespace.internal.arn
+    services  = []
+  }
+
+  depends_on = [
+    aws_rds_cluster_instance.core,
+    aws_elasticache_replication_group.valkey
+  ]
+}
