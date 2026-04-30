@@ -320,8 +320,8 @@ module "metrics_service" {
     subnets = [aws_subnet.private_subnet_a.id, aws_subnet.private_subnet_b.id]
     vpc_id  = aws_vpc.application_vpc.id
   }
-  minimum_replica_count = 0
-  maximum_replica_count = 0
+  minimum_replica_count = 1
+  maximum_replica_count = 1
   cluster_id            = aws_ecs_cluster.cluster.id
   cluster_name          = aws_ecs_cluster.cluster.name
   environment           = var.environment
